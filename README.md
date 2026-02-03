@@ -1,25 +1,40 @@
 # PixArt Beads
 
+PixArt Beads（拼豆）
+
 This repo contains some python scripts that should be useful in transforming images into pixel-beads images and handcrafts!
+
+本仓库包含一些 Python 脚本，可用于将图像转换为拼豆图和手工制品！
 
 <img src="./media/FNL-Pilxten_41-TransportCopter.png" width="300px"> <img src="./media/FNL-Pilxten_41-BattleCopter.png" width="300px">
 
 
 Some of the main features are:
 
+主要特性包括：
+
 * **Color quantization:** with the option to use number of colors, provided or user-defined color palettes.
 * **Image downscale:** take an image and downsize it to a desired number of pixels.
 * **Color mapping:** manually change colors to do things like remove the background.
 * **Color counts:** count the number of beads of each color that are needed for our handcraft.
 
+* **颜色量化：** 支持使用指定颜色数、内置或自定义调色板。
+* **图像缩放：** 将图像缩放到期望的像素尺寸。
+* **颜色映射：** 手动更改颜色，例如移除背景。
+* **颜色计数：** 统计手工制作所需的每种颜色的拼豆数量。
+
 
 <img src="./media/sami.png" width="200px"><img src="./media/B-SGB_M1A-sami.png" width="200px" ><img src="./media/C-SGB_M1A-sami.png" width="200px"><img src="./media/D-SGB_M1A-sami.png" width="200px">
 
-## Instructions
+## Instructions / 使用说明
 
 **IMPORTANT NOTE:** For a step-by-step use of the scripts, please have a look at the provided [demo](./demo) after installing the dependencies.
 
+**重要提示：** 安装依赖后，如需逐步使用脚本，请查看提供的 [demo](./demo)。
+
 To use the scripts first install the required dependencies either through the REQUIREMENTS files (`txt`/`yml`), or manually:
+
+要使用这些脚本，请先通过 REQUIREMENTS 文件（`txt`/`yml`）或手动安装所需依赖：
 
 ```bash
 pip install numpy
@@ -30,11 +45,15 @@ pip install opencv-python
 
 Give the bash script executable permissions:
 
+为 bash 脚本添加可执行权限：
+
 ```bash
 chmod +x main.sh
 ```
 
 And then run it as follows:
+
+然后按如下方式运行：
 
 ```bash
 ./main.sh $PTH $IMG $DWN $UPS $DBG
@@ -46,7 +65,15 @@ And then run it as follows:
 * `UPS`: Upscaler multiplier for the plots (`10`, the suggested value, will multiply the dimensions of the downscaled images by ten when exporting the output).
 * `DBG`: Debug mode (leave as `0` if no intermediary output is desired, and as `1` to have each intermediate plot exported).
 
+* `PTH`：存放图像、调色板与颜色映射文件的目录。
+* `IMG`：要处理的图像文件名。
+* `DWN`：输出图像的像素宽度（不缩放请设为 `0`）。
+* `UPS`：输出图的放大倍率（建议 `10`，导出时将缩放后的图像尺寸放大 10 倍）。
+* `DBG`：调试模式（不需要中间输出请设为 `0`，设为 `1` 会导出每个中间结果）。
+
 This will take the `IMG` in the set `PTH` along with all the `*.plt` files stored in the directory and the `CMapper.map`, and generate a nested output folder (in the same directory) with the bead plots. Alternatively, we can use the `batch.sh` file to process all the images stored in the same directory:
+
+该命令会读取 `PTH` 目录中的 `IMG`、所有 `*.plt` 文件以及 `CMapper.map`，并在同一目录下生成包含拼豆图的嵌套输出文件夹。或者，可以使用 `batch.sh` 处理同一目录中的所有图片：
 
 ```bash
 ./batch.sh $PTH $DWN $UPS $DBG
@@ -54,18 +81,24 @@ This will take the `IMG` in the set `PTH` along with all the `*.plt` files store
 
 Finally, the script can also be called from python with:
 
+最后，也可以通过 Python 调用脚本：
+
 ```bash
 python main.py $PTH $IMG $PAL $DWN $UPS $DBG
 ```
 
 where an additional parameter `PAL` is needed for the color palette filename (if set to a number instead of a `.plt` file, it will instead quantize to the provided number of colors.
 
+其中需要额外的参数 `PAL` 指定调色板文件名（如果不是 `.plt` 文件而是数字，则会量化到给定的颜色数量）。
+
 
 <img src="./media/FNL-SGBM1A_4-sami.png" width="800px">
 
-## Available Palettes
+## Available Palettes / 可用调色板
 
 Some nice [color palettes](./palettes/README.md) are included in the scripts, but if you have the hex colors of your beads, please follow [this link](./palettes/README.md) for information on how to use them in your handcraft! A subset of the included palettes is shown but follow the [link for the full list](./palettes/README.md):
+
+脚本内置了一些不错的[调色板](./palettes/README.md)。如果你有拼豆的十六进制颜色值，请查看[这里](./palettes/README.md)了解如何在你的手工制作中使用它们！下面仅展示了部分调色板，完整列表请见[该链接](./palettes/README.md)：
 
 <table>
     <tr><th>Code</th><th>Palette</th><th>Source</th></tr>
@@ -81,10 +114,8 @@ Some nice [color palettes](./palettes/README.md) are included in the scripts, bu
     <tr><td>Sweetie_16</td><td><img src='./palettes/Sweetie_16.png'></td><td><a href=https://lospec.com/palette-list/sweetie-16>https://lospec.com/palette-list/sweetie-16</a></td></tr>
 </table> 
 
-##  Author
+## Author / 作者
 
-For more info, have a look at my accompanying [blog post](https://chipdelmal.github.io/artsci/2022-03-10-PixelArt.html) describing the processing pipeline!
+本项目基于 GNU General Public License v3.0（GPLv3）协议，从原项目 fork 而来并进行二次开发，承诺对所做的任何修改均进行开源。
 
-<img src="./media/pusheen.png" height="100px" align="middle"><br>
-
-[Héctor M. Sánchez C.](https://chipdelmal.github.io/)
+原项目地址：https://github.com/Chipdelmal/PixArt-Beads
