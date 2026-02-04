@@ -1,0 +1,8 @@
+cybergum6
+
+#3A2B3B
+#2D4A54
+#0C7475
+#BC4A9B
+#EB8D9C
+#FFD8BA

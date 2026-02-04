@@ -16,11 +16,21 @@ if fun.isNotebook():
     )
     (DOWNSCALE, UPSCALE) = ((50,50), 10)
     DEBUG = True
+    GRID = 0
+    LABELS = 0
+    AUTHOR = None
 else:
-    os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH")
+    os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
     (BASE_PATH, PNG_NAME, PAL_NAME) = (argv[1], argv[2], argv[3])
     (DOWNSCALE, UPSCALE) = (int(argv[4]), int(argv[5]))
     DEBUG = int(argv[6])
+    GRID = int(argv[7]) if len(argv) > 7 else 0
+    if len(argv) > 8 and fun.isInt(argv[8]):
+        LABELS = int(argv[8])
+        AUTHOR = argv[9] if len(argv) > 9 else None
+    else:
+        LABELS = 0
+        AUTHOR = argv[8] if len(argv) > 8 else None
 # Internal constants ----------------------------------------------------------
 (QNT_MTHD, DWN_MTHD) = (fun.MTHDS[0], fun.MTHDS[1])
 ###############################################################################
@@ -49,12 +59,13 @@ if exists(fileMapper):
 #   0: median cut, 1: maximum coverage, 2: fast octree
 ###############################################################################
 if fun.isInt(PAL_NAME):
-    imgQnt = fun.quantizeImage(img, int(PAL_NAME), method=QNT_MTHD)
+    imgQnt = fun.quantizeImage(img, int(PAL_NAME), method=QNT_MTHD, dither=False)
+    cpal = None
 else:
     palDict = fun.readPaletteFile(path.join(BASE_PATH, PAL_NAME))
     cpal = fun.paletteReshape(palDict['palette'])
     imgQnt = fun.quantizeImage(
-        img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD
+        img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
     )
 # imgQnt.save(pthQNT)
 ###############################################################################
@@ -63,6 +74,11 @@ else:
 ###############################################################################
 dsize = fun.downscaleSize(imgQnt, DOWNSCALE)
 imgDwn = imgQnt.resize(dsize, resample=DWN_MTHD)
+# Re-quantize to ensure colors match the palette after interpolation
+if cpal is not None:
+    imgDwn = fun.quantizeImage(
+        imgDwn.convert('RGB'), colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+    )
 imgDwn.save(pthDWN)
 sleep(fun.SLEEP)
 ###############################################################################
@@ -96,13 +112,14 @@ sleep(fun.SLEEP)
 ###############################################################################
 # Swatch
 ###############################################################################
-(imgBDS, imgTmp, imgDwn) = (
+(imgBDS, imgTmp) = (
     Image.open(pthBDS).convert('RGB'),
-    Image.open(pthDWN).convert('RGB'),
-    Image.open(pthDWN).convert('RGB')
+    imgDwn.convert('RGB') if imgDwn.mode != 'RGB' else imgDwn.copy()
 )
 swatch = fun.getImagePalette(imgTmp)
-imgSwt = fun.genColorCounts(swatch, 500, imgBDS.size[1], imgDwn.size)
+imgSwt = fun.genColorCounts(
+    swatch, 500, imgBDS.size[1], imgDwn.size, authorLabel=AUTHOR
+)
 plt.savefig(
     pthSWT, bbox_inches='tight', pad_inches=0,
     facecolor=[i/255 for i in ImageColor.getcolor(fun.BEAD_BKG, "RGB")]
@@ -116,6 +133,17 @@ sleep(fun.SLEEP)
     Image.open(pthBDS).convert('RGB'),
     Image.open(pthSWT).convert('RGB')
 )
+if GRID:
+    imgBDS = fun.addGridByCount(imgBDS, dsize[0], dsize[1], color=(200, 200, 200), width=1)
+if LABELS:
+    baseHeight = imgBDS.height
+    imgBDS = fun.addGridLabelsWithMargin(imgBDS, dsize[0], dsize[1], color=(120, 120, 120))
+    marginH = max(0, (imgBDS.height - baseHeight) // 2)
+    if imgSWT.height != imgBDS.height:
+        bkg = ImageColor.getcolor(fun.BEAD_BKG, "RGB")
+        padded = Image.new('RGB', (imgSWT.width, imgBDS.height), color=bkg)
+        padded.paste(imgSWT, (0, marginH))
+        imgSWT = padded
 ccat = fun.hConcat(imgBDS, imgSWT)
 ccat.save(pthFNL)
 sleep(fun.SLEEP)

@@ -140,6 +140,55 @@ Some nice [color palettes](./palettes/README.md) are included in the scripts, bu
 
 脚本内置了一些不错的[调色板](./palettes/README.md)。如果你有拼豆的十六进制颜色值，请查看[这里](./palettes/README.md)了解如何在你的手工制作中使用它们！下面仅展示了部分调色板，完整列表请见[该链接](./palettes/README.md)：
 
+### Palette Format Conversion / 调色板格式转换
+
+If you have palette files in hex format (one color per line, with or without `#` prefix) from sources like [lospec.com](https://lospec.com), you can convert them to `.plt` format using the provided conversion tool:
+
+如果你有来自 [lospec.com](https://lospec.com) 等网站的十六进制格式调色板文件（每行一个颜色，可以有或没有 `#` 前缀），可以使用提供的转换工具将其转换为 `.plt` 格式：
+
+```bash
+cd palettes_in_other
+python convert_hex_to_plt.py
+```
+
+**Usage / 使用方法：**
+
+1. Place your hex format palette files (`.hex` or `.txt`) in the `hex_files` directory
+2. Run the conversion script
+3. Converted `.plt` files will be saved in the `plt_files` directory
+4. Copy the `.plt` files to the `palettes` directory to use them with the main script
+
+**使用步骤：**
+
+1. 将十六进制格式的调色板文件（`.hex` 或 `.txt`）放在 `hex_files` 目录中
+2. 运行转换脚本
+3. 转换后的 `.plt` 文件将保存在 `plt_files` 目录中
+4. 将 `.plt` 文件复制到 `palettes` 目录即可与主脚本配合使用
+
+**Hex File Format / 十六进制文件格式：**
+
+```
+3a2b3b
+2d4a54
+0c7475
+bc4a9b
+```
+
+Or with `#` prefix:
+
+或带有 `#` 前缀：
+
+```
+#3a2b3b
+#2d4a54
+#0c7475
+#bc4a9b
+```
+
+脚本内置了一些不错的[调色板](./palettes/README.md)。如果你有拼豆的十六进制颜色值，请查看[这里](./palettes/README.md)了解如何在你的手工制作中使用它们！下面仅展示了部分调色板，完整列表请见[该链接](./palettes/README.md)：
+
+脚本内置了一些不错的[调色板](./palettes/README.md)。如果你有拼豆的十六进制颜色值，请查看[这里](./palettes/README.md)了解如何在你的手工制作中使用它们！下面仅展示了部分调色板，完整列表请见[该链接](./palettes/README.md)：
+
 <table>
     <tr><th>Code</th><th>Palette</th><th>Source</th></tr>
     <!--Table Begins-->
