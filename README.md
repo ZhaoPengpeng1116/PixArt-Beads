@@ -20,14 +20,20 @@ Some of the main features are:
 * **Grid overlay:** option to add a light grid to visualize individual bead positions on the final image.
 * **Row/column labels:** option to add row and column numbers around the grid for easier placement reference.
 * **Author annotation:** option to add author/credit information to the final output.
+* **MARD labels:** option to show MARD color codes (215 colors: A1-M15) in the swatch output, with automatic nearest-color matching.
+* **Color clustering:** option to automatically reduce palette colors to a specified count using K-means clustering for better color management.
+* **Comparison grid:** automatically generates a visual comparison showing original, intermediate, and final results side by side.
 
-* **颜色量化：** 支持使用指定颜色数、内置或自定义调色板。
+* **颜色量化：** 支持使用指定颜色数、内置或自定义调色板。使用 `MARD` 可启用完整 MARD 色卡（215种颜色）。
 * **图像缩放：** 将图像缩放到期望的像素尺寸。
 * **颜色映射：** 手动更改颜色，例如移除背景。
 * **颜色计数：** 统计手工制作所需的每种颜色的拼豆数量。
 * **网格叠加：** 可选在最终拼豆图上添加浅色网格以标注各拼豆位置。
 * **行列编号：** 可选在网格周围绘制行号和列号以便放置参考。
 * **作者标注：** 可选在最终输出上添加作者/署名信息。
+* **MARD色号：** 可选在色卡中显示 MARD 色号标识（215种颜色：A1-M15），自动匹配最接近的颜色。
+* **颜色聚类：** 可选使用 K-means 聚类将调色板颜色自动归并到指定数量，实现更好的颜色管理。
+* **对比网格：** 自动生成可视化对比图，并排显示原图、中间结果和最终输出。
 
 
 <img src="./media/sami.png" width="200px"><img src="./media/B-SGB_M1A-sami.png" width="200px" ><img src="./media/C-SGB_M1A-sami.png" width="200px"><img src="./media/D-SGB_M1A-sami.png" width="200px">
@@ -70,7 +76,7 @@ And then run it as follows:
 然后按如下方式运行：
 
 ```bash
-./main.sh $PTH $IMG $DWN $UPS $DBG $GRD $LBL $AUTH
+./main.sh $PTH $IMG $DWN $UPS $DBG $GRD $LBL $AUTH $MARD $CLUSTER
 ```
 
 * `PTH`: Folder in which our image(s) are stored along with the palettes and color mapper.
@@ -81,6 +87,8 @@ And then run it as follows:
 * `GRD`: Final grid overlay (set to `1` to add a light grid to the final beads image, `0` otherwise).
 * `LBL`: Row/column labels (set to `1` to add an extra border row/column with numbers around the grid, `0` otherwise).
 * `AUTH`: Optional author label to append next to the size/total text in the swatch (e.g., `(@晚回舟)`).
+* `MARD`: Optional MARD color code labels in the swatch (`1` to show MARD codes, `0` to keep hex). Non-exact colors will be automatically matched to the nearest MARD color.
+* `CLUSTER`: Optional color clustering target count (`0` to disable, 1-255 for target colors). Works with both palette files and full MARD palette.
 
 * `PTH`：存放图像、调色板与颜色映射文件的目录。
 * `IMG`：要处理的图像文件名。
@@ -90,6 +98,8 @@ And then run it as follows:
 * `GRD`：最终网格叠加（设为 `1` 在最终拼豆图上添加浅色网格，`0` 不添加）。
 * `LBL`：行列编号（设为 `1` 在网格外围额外加一行一列用于标注行号与列号，`0` 不绘制）。
 * `AUTH`：可选作者标注，追加到 Size/Total 文本后（例如 `(@晚回舟)`）。
+* `MARD`：可选在色卡中使用 MARD 色号标识（`1` 显示 MARD 色号，`0` 仍显示十六进制）。若颜色不在 MARD 色卡中，将自动匹配到最接近的 MARD 色号。
+* `CLUSTER`：可选颜色聚类目标数量（`0` 禁用，1-255 为目标颜色数量）。支持调色板文件和完整 MARD 色卡。
 
 This will take the `IMG` in the set `PTH` along with all the `*.plt` files stored in the directory and the `CMapper.map`, and generate a nested output folder (in the same directory) with the bead plots. Alternatively, we can use the `batch.sh` file to process all the images stored in the same directory:
 
@@ -104,12 +114,12 @@ Finally, the script can also be called from python with:
 最后，也可以通过 Python 调用脚本：
 
 ```bash
-python main.py $PTH $IMG $PAL $DWN $UPS $DBG $GRD $LBL $AUTH
+python main.py $PTH $IMG $PAL $DWN $UPS $DBG $GRD $LBL $AUTH $MARD $CLUSTER
 ```
 
-where an additional parameter `PAL` is needed for the color palette filename (if set to a number instead of a `.plt` file, it will instead quantize to the provided number of colors).
+where an additional parameter `PAL` is needed for the color palette filename (if set to a number instead of a `.plt` file, it will instead quantize to the provided number of colors). Use `MARD` as palette name to use the full MARD color palette (215 colors).
 
-其中需要额外的参数 `PAL` 指定调色板文件名（如果不是 `.plt` 文件而是数字，则会量化到给定的颜色数量）。
+其中需要额外的参数 `PAL` 指定调色板文件名（如果不是 `.plt` 文件而是数字，则会量化到给定的颜色数量）。使用 `MARD` 作为调色板名称可使用完整 MARD 色卡（215种颜色）。
 
 ### Output Files / 输出文件
 
@@ -121,15 +131,17 @@ The script generates several output files for each image:
 * **UPS**: Upscaled image (enlarged for display/printing)
 * **GRD**: Grid overlay (with beads grid lines)
 * **BDS**: Beads plot (circular beads visualization)
-* **SWT**: Color swatch (palette with color counts)
+* **SWT**: Color swatch (palette with color counts and optional MARD codes)
 * **FNL**: Final output (beads plot + color swatch)
+* **CMP**: Comparison grid (original, UPS, GRD in top row; FNL in bottom row with margins)
 
 * **DWN**: 降采样图像（缩放到目标尺寸）
 * **UPS**: 放大图像（用于展示/打印）
 * **GRD**: 网格图（含拼豆网格线）
 * **BDS**: 拼豆图（圆形拼豆可视化）
-* **SWT**: 色卡（调色板与颜色数量统计）
+* **SWT**: 色卡（调色板与颜色数量统计，可选 MARD 色号）
 * **FNL**: 最终输出（拼豆图 + 色卡）
+* **CMP**: 对比网格（上排：原图、UPS、GRD；下排：FNL，带边距）
 
 
 <img src="./media/FNL-SGBM1A_4-sami.png" width="800px">

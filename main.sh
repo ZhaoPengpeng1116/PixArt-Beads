@@ -14,6 +14,11 @@ IMG=$2
 DWN=$3
 UPS=$4
 DBG=$5
+GRD=${6:-0}
+LBL=${7:-0}
+AUTH=${8:-}
+MARD=${9:-0}
+CLUSTER=${10:-0}
 ###############################################################################
 # Terminal colors
 ###############################################################################
@@ -30,6 +35,6 @@ PALS=($(find $PTH -name '*.plt'))
 for palPath in ${PALS[@]}; do
     PAL=$(basename ${palPath})
     printf "\r* Processing ${BLU}${IMG} ${RED}[${PAL}]\033[K${NC}"
-    python main.py $PTH $IMG $PAL $DWN $UPS $DBG
+    python main.py $PTH $IMG $PAL $DWN $UPS $DBG $GRD $LBL $AUTH $MARD $CLUSTER
 done
 printf "\r\r\n"

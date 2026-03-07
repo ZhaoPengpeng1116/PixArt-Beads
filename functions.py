@@ -11,15 +11,240 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 import matplotlib.patches as mpatch
+from sklearn.cluster import KMeans
 
 ###############################################################################
 # Globals 
 ###############################################################################
-FIDS = ('QNT', 'DWN', 'UPS', 'GRD', 'SWT', 'BDS', 'FNL')
+FIDS = ('QNT', 'DWN', 'UPS', 'GRD', 'SWT', 'BDS', 'FNL', 'CMP')
 MTHDS = (0, Image.BILINEAR)
 RADII = (0.2, 0.975)
 (BEAD_ALPHA, BEAD_BKG) = (1.0, '#fefefe')
 SLEEP = 5
+
+MARD_MAP = {
+    '#faf5cd': 'A1',
+    '#fcfed6': 'A2',
+    '#fcff92': 'A3',
+    '#f7ec5c': 'A4',
+    '#f0d83a': 'A5',
+    '#fda951': 'A6',
+    '#fa8c4f': 'A7',
+    '#fbda4d': 'A8',
+    '#f79d5f': 'A9',
+    '#f47e38': 'A10',
+    '#fedb99': 'A11',
+    '#fda276': 'A12',
+    '#fec667': 'A13',
+    '#f75842': 'A14',
+    '#fbf65e': 'A15',
+    '#feff97': 'A16',
+    '#fde173': 'A17',
+    '#fcbf80': 'A18',
+    '#fd7e77': 'A19',
+    '#f9d666': 'A20',
+    '#fae393': 'A21',
+    '#edf878': 'A22',
+    '#e4c8ba': 'A23',
+    '#f3f6a9': 'A24',
+    '#fdf785': 'A25',
+    '#ffc734': 'A26',
+    '#dff13b': 'B1',
+    '#64f343': 'B2',
+    '#a1f586': 'B3',
+    '#5fdf34': 'B4',
+    '#39e158': 'B5',
+    '#64e0a4': 'B6',
+    '#3eae7c': 'B7',
+    '#1d9b54': 'B8',
+    '#2a5037': 'B9',
+    '#9ad1ba': 'B10',
+    '#627032': 'B11',
+    '#1a6e3d': 'B12',
+    '#c8e87d': 'B13',
+    '#abe84f': 'B14',
+    '#305335': 'B15',
+    '#c0ed9c': 'B16',
+    '#9eb33e': 'B17',
+    '#e6ed4f': 'B18',
+    '#26b78e': 'B19',
+    '#cbeccf': 'B20',
+    '#18616a': 'B21',
+    '#0a4241': 'B22',
+    '#343b1a': 'B23',
+    '#e8faa6': 'B24',
+    '#4e846d': 'B25',
+    '#907c35': 'B26',
+    '#d0e0af': 'B27',
+    '#9ee5bb': 'B28',
+    '#c6df5f': 'B29',
+    '#e3fbb1': 'B30',
+    '#b4e691': 'B31',
+    '#92ad60': 'B32',
+    '#f0fee4': 'C1',
+    '#abf8fe': 'C2',
+    '#a2e0f7': 'C3',
+    '#44cdfb': 'C4',
+    '#06aadf': 'C5',
+    '#54a7e9': 'C6',
+    '#3977ca': 'C7',
+    '#0f52bd': 'C8',
+    '#3349c3': 'C9',
+    '#3cbce3': 'C10',
+    '#2aded3': 'C11',
+    '#1e334e': 'C12',
+    '#cde7fe': 'C13',
+    '#d5fcf7': 'C14',
+    '#21c5c4': 'C15',
+    '#1858a2': 'C16',
+    '#02d1f3': 'C17',
+    '#213244': 'C18',
+    '#18869d': 'C19',
+    '#1a70a9': 'C20',
+    '#bcddfc': 'C21',
+    '#6bb1bb': 'C22',
+    '#c8e2fd': 'C23',
+    '#7ec5f9': 'C24',
+    '#a9e8e0': 'C25',
+    '#42adcf': 'C26',
+    '#d0def9': 'C27',
+    '#bdcee8': 'C28',
+    '#364a89': 'C29',
+    '#acb7ef': 'D1',
+    '#868dd3': 'D2',
+    '#3554af': 'D3',
+    '#162d7b': 'D4',
+    '#b34ec6': 'D5',
+    '#b37bdc': 'D6',
+    '#8758a9': 'D7',
+    '#e3d2fe': 'D8',
+    '#d5b9f4': 'D9',
+    '#301a49': 'D10',
+    '#beb9e2': 'D11',
+    '#dc99ce': 'D12',
+    '#b5038d': 'D13',
+    '#862993': 'D14',
+    '#2f1f8c': 'D15',
+    '#e2e4f0': 'D16',
+    '#c7d3f9': 'D17',
+    '#9a64b8': 'D18',
+    '#d8c2d9': 'D19',
+    '#9a35ad': 'D20',
+    '#940595': 'D21',
+    '#38389a': 'D22',
+    '#eadbf8': 'D23',
+    '#768ae1': 'D24',
+    '#4950c2': 'D25',
+    '#d6c6eb': 'D26',
+    '#f6d4cb': 'E1',
+    '#fcc1dd': 'E2',
+    '#f6bde8': 'E3',
+    '#e8649e': 'E4',
+    '#f0569f': 'E5',
+    '#eb4172': 'E6',
+    '#c53674': 'E7',
+    '#fddbe9': 'E8',
+    '#e376c7': 'E9',
+    '#d13b95': 'E10',
+    '#f7dad4': 'E11',
+    '#f693bf': 'E12',
+    '#b5026a': 'E13',
+    '#fad4bf': 'E14',
+    '#f5c9ca': 'E15',
+    '#fbf4ec': 'E16',
+    '#f7e3ec': 'E17',
+    '#f9c8db': 'E18',
+    '#f6bbd1': 'E19',
+    '#d7c6ce': 'E20',
+    '#c09da4': 'E21',
+    '#b38c9f': 'E22',
+    '#937d8a': 'E23',
+    '#debee5': 'E24',
+    '#fe9381': 'F1',
+    '#f63d4b': 'F2',
+    '#ee4e3e': 'F3',
+    '#fb2a40': 'F4',
+    '#e10328': 'F5',
+    '#913635': 'F6',
+    '#911932': 'F7',
+    '#bb0126': 'F8',
+    '#e0677a': 'F9',
+    '#874628': 'F10',
+    '#592323': 'F11',
+    '#f3536b': 'F12',
+    '#f45c45': 'F13',
+    '#fcadb2': 'F14',
+    '#d50527': 'F15',
+    '#f8c0a9': 'F16',
+    '#e89b7d': 'F17',
+    '#d07f4a': 'F18',
+    '#be454a': 'F19',
+    '#c69495': 'F20',
+    '#f2b8c6': 'F21',
+    '#f7c3d0': 'F22',
+    '#ed806c': 'F23',
+    '#e09daf': 'F24',
+    '#e84854': 'F25',
+    '#ffe4d3': 'G1',
+    '#fcc6ac': 'G2',
+    '#f1c4a5': 'G3',
+    '#dcb387': 'G4',
+    '#e7b34e': 'G5',
+    '#e3a014': 'G6',
+    '#985c3a': 'G7',
+    '#713d2f': 'G8',
+    '#e4b685': 'G9',
+    '#da8c42': 'G10',
+    '#dac898': 'G11',
+    '#fec993': 'G12',
+    '#b2714b': 'G13',
+    '#8b684c': 'G14',
+    '#f6f8e3': 'G15',
+    '#f2d8c1': 'G16',
+    '#77544e': 'G17',
+    '#ffe3d5': 'G18',
+    '#dd7d41': 'G19',
+    '#a5452f': 'G20',
+    '#b38561': 'G21',
+    '#ffffff': 'H1',
+    '#fbfbfb': 'H2',
+    '#b4b4b4': 'H3',
+    '#878787': 'H4',
+    '#464648': 'H5',
+    '#2c2c2c': 'H6',
+    '#010101': 'H7',
+    '#e7d6dc': 'H8',
+    '#efedee': 'H9',
+    '#ebebeb': 'H10',
+    '#cdcdcd': 'H11',
+    '#fdf6ee': 'H12',
+    '#f4edf1': 'H13',
+    '#ced7d4': 'H14',
+    '#9aa6a6': 'H15',
+    '#1b1213': 'H16',
+    '#f0eeef': 'H17',
+    '#fcfff6': 'H18',
+    '#f2eee5': 'H19',
+    '#96a09f': 'H20',
+    '#f8fbe6': 'H21',
+    '#cacad2': 'H22',
+    '#9b9c94': 'H23',
+    '#bbc6b6': 'M1',
+    '#909994': 'M2',
+    '#697e81': 'M3',
+    '#e0d4bc': 'M4',
+    '#d1ccaf': 'M5',
+    '#b0aa86': 'M6',
+    '#b0a796': 'M7',
+    '#ae8082': 'M8',
+    '#a68862': 'M9',
+    '#c4b3bb': 'M10',
+    '#9d7693': 'M11',
+    '#644b51': 'M12',
+    '#c79266': 'M13',
+    '#c27563': 'M14',
+    '#747d7a': 'M15',
+}
 
 ###############################################################################
 # Functions 
@@ -244,7 +469,7 @@ def genBeadsPlot(
     ):
     bkgCol = [i/255 for i in ImageColor.getcolor(bgColor, "RGB")]
     imgCV = cvtColor(imgCV, cv2.COLOR_BGR2RGB)
-    imgCV = cv2.rotate(imgCV, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
+    imgCV = cv2.rotate(imgCV, cv2.ROTATE_90_COUNTERCLOCKWISE)
     (fig, ax) = plt.subplots(1, 1, figsize=(15, 15))
     (fig, ax) = plotBeads(
         fig, ax, imgCV, diameter=diameter,
@@ -292,6 +517,54 @@ def rgbToHex(r, g, b):
     return '#{:02x}{:02x}{:02x}'.format(r, g, b)
 
 
+def normalizeHex(hexColor):
+    if not hexColor:
+        return None
+    h = hexColor.strip().lower()
+    if not h.startswith('#'):
+        h = f'#{h}'
+    return h
+
+
+def getMardCode(hexColor):
+    h = normalizeHex(hexColor)
+    if not h:
+        return None
+    return MARD_MAP.get(h)
+
+
+def _hexToRgb(hexColor):
+    rgb = ImageColor.getcolor(hexColor, "RGB")
+    return np.array(rgb, dtype=np.int16)
+
+
+def getNearestMardCode(hexColor):
+    h = normalizeHex(hexColor)
+    if not h:
+        return None
+    if h in MARD_MAP:
+        return MARD_MAP[h]
+    target = _hexToRgb(h)
+    best_code = None
+    best_dist = None
+    for mhex, code in MARD_MAP.items():
+        dist = np.sum((target - _hexToRgb(mhex)) ** 2)
+        if best_dist is None or dist < best_dist:
+            best_dist = dist
+            best_code = code
+    return best_code
+
+
+def getFullMardPalette():
+    """
+    Get all MARD color codes as a palette list.
+    
+    Returns:
+        List of all MARD hex colors (215 colors)
+    """
+    return list(MARD_MAP.keys())
+
+
 def getImagePalette(img):
     palette = sorted(img.getcolors(), reverse=True)
     hexPalette = [(rgbToHex(*i[1]), i[0]) for i in palette]
@@ -322,14 +595,13 @@ def genColorCounts(
         fontdict = {'family':'monospace', 'weight':'normal', 'size':30},
     xlim = (0, 1.25),
     authorLabel=None,
-    authorFontdict = {'family':'monospace', 'weight':'normal', 'size':24}
+    authorFontdict = {'family':'monospace', 'weight':'normal', 'size':24},
+    useMard=False
     ):
     pal = imgPalette
     # Create canvas
-    fig = plt.gcf()
-    DPI = fig.get_dpi()
-    ax = fig.add_axes([0, 0, 1, 1])
-    fig.set_size_inches(width/float(DPI), height/float(DPI))
+    fig, ax = plt.subplots(figsize=(width/100.0, height/100.0))
+    ax.set_position([0, 0, 1, 1])
     # Setting up groups
     n_groups = 1
     n_rows = len(pal)//n_groups+1
@@ -347,9 +619,16 @@ def genColorCounts(
             (hshift+col_shift, y_pos), wr, hr, color=rgb, ec='k', lw=4
         ))
         colorText = color.upper()
+        labelText = colorText
+        if useMard:
+            mardCode = getMardCode(color)
+            if not mardCode:
+                mardCode = getNearestMardCode(color)
+            if mardCode:
+                labelText = f'{mardCode} ({colorText})'
         ax.text(
             hshift+wr*1.1+col_shift, y_pos+hr/2, 
-            f' {colorText} ({count:05}) ', 
+            f' {labelText} ({count:05}) ', 
             color='k', va='center', ha='left', fontdict=fontdict
         )
     # Add pixel size and total count
@@ -422,6 +701,129 @@ def vConcat(im1, im2):
     dst.paste(im1, (0, 0))
     dst.paste(im2, (0, im1.height))
     return dst
+
+
+def createComparisonGrid(originalPath, upsPath, grdPath, fnlPath, outputPath):
+    """
+    Create a comparison grid: top row = original, UPS, GRD; bottom row = FNL (centered)
+    
+    Args:
+        originalPath: Path to original image
+        upsPath: Path to UPS image
+        grdPath: Path to GRD image
+        fnlPath: Path to FNL image
+        outputPath: Output path for comparison grid
+    """
+    # Load images
+    imgOrig = Image.open(originalPath).convert('RGB')
+    imgUps = Image.open(upsPath).convert('RGB')
+    imgGrd = Image.open(grdPath).convert('RGB')
+    imgFnl = Image.open(fnlPath).convert('RGB')
+    
+    # Resize original to match UPS height while maintaining aspect ratio
+    targetHeight = imgUps.height
+    aspectRatio = imgOrig.width / imgOrig.height
+    newWidth = int(targetHeight * aspectRatio)
+    imgOrigResized = imgOrig.resize((newWidth, targetHeight), Image.LANCZOS)
+    
+    # Create spacing between images
+    gap = 10
+    gapImg = Image.new('RGB', (gap, targetHeight), color=(255, 255, 255))
+    
+    # Create top row: original, gap, UPS, gap, GRD
+    topRow = hConcat(imgOrigResized, gapImg)
+    topRow = hConcat(topRow, imgUps)
+    topRow = hConcat(topRow, gapImg)
+    topRow = hConcat(topRow, imgGrd)
+    
+    # Create bottom row: FNL centered (ensure full width is visible)
+    # If FNL is wider than top row, stretch top row to match FNL width
+    if imgFnl.width > topRow.width:
+        # Scale top row to match FNL width
+        scaleRatio = imgFnl.width / topRow.width
+        newHeight = int(topRow.height * scaleRatio)
+        topRow = topRow.resize((imgFnl.width, newHeight), Image.LANCZOS)
+        xOffset = 0
+    else:
+        xOffset = (topRow.width - imgFnl.width) // 2
+    
+    bottomBg = Image.new('RGB', (topRow.width, imgFnl.height), color=(254, 254, 254))
+    bottomBg.paste(imgFnl, (xOffset, 0))
+    
+    # Combine top and bottom
+    combined = vConcat(topRow, bottomBg)
+    
+    # Add margins (top, left, right) with same gap width
+    finalWidth = combined.width + 2 * gap
+    finalHeight = combined.height + gap
+    result = Image.new('RGB', (finalWidth, finalHeight), color=(255, 255, 255))
+    result.paste(combined, (gap, gap))
+    result.save(outputPath)
+    
+    return result
+
+
+def isInt(element):
+    try:
+        int(element)
+        return True
+    except ValueError:
+        return False
+
+
+def clusterColors(colorPalette, numClusters):
+    """
+    Use K-means clustering to reduce palette to target color count.
+    
+    Args:
+        colorPalette: List of hex color strings (e.g., ['#FF0000', '#00FF00', ...])
+        numClusters: Target number of colors
+    
+    Returns:
+        List of clustered hex colors
+    """
+    if len(colorPalette) <= numClusters:
+        return colorPalette
+    
+    # Convert hex to RGB
+    rgbArray = np.array([
+        ImageColor.getcolor(c, "RGB") for c in colorPalette
+    ])
+    
+    # K-means clustering on RGB
+    kmeans = KMeans(n_clusters=numClusters, n_init=10, random_state=42)
+    kmeans.fit(rgbArray)
+    
+    # Get cluster centers and convert back to hex
+    centers = kmeans.cluster_centers_.astype(np.uint8)
+    clusteredColors = [rgbToHex(c[0], c[1], c[2]) for c in centers]
+    
+    return clusteredColors
+
+
+def remapImageToClusteredPalette(img, originalPalette, clusteredPalette):
+    """
+    Remap image from original palette to clustered palette by finding nearest color.
+    
+    Args:
+        img: PIL Image with palette mode
+        originalPalette: List of original hex colors
+        clusteredPalette: List of clustered hex colors
+    
+    Returns:
+        PIL Image quantized to clustered palette
+    """
+    # Convert image to RGB for processing
+    img_rgb = img.convert('RGB')
+    
+    # Get clustered palette
+    cpal = paletteReshape(clusteredPalette)
+    remapped_img = quantizeImage(
+        img_rgb, colorsNumber=cpal[0], colorPalette=cpal[1], 
+        method=MTHDS[0], dither=False
+    )
+    
+    return remapped_img
 
 
 def isInt(element):

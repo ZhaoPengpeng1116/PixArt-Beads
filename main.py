@@ -19,6 +19,8 @@ if fun.isNotebook():
     GRID = 0
     LABELS = 0
     AUTHOR = None
+    MARD = 0
+    CLUSTER = 0
 else:
     os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH", None)
     (BASE_PATH, PNG_NAME, PAL_NAME) = (argv[1], argv[2], argv[3])
@@ -28,9 +30,13 @@ else:
     if len(argv) > 8 and fun.isInt(argv[8]):
         LABELS = int(argv[8])
         AUTHOR = argv[9] if len(argv) > 9 else None
+        MARD = int(argv[10]) if len(argv) > 10 and fun.isInt(argv[10]) else 0
+        CLUSTER = int(argv[11]) if len(argv) > 11 and fun.isInt(argv[11]) else 0
     else:
         LABELS = 0
         AUTHOR = argv[8] if len(argv) > 8 else None
+        MARD = int(argv[9]) if len(argv) > 9 and fun.isInt(argv[9]) else 0
+        CLUSTER = int(argv[10]) if len(argv) > 10 and fun.isInt(argv[10]) else 0
 # Internal constants ----------------------------------------------------------
 (QNT_MTHD, DWN_MTHD) = (fun.MTHDS[0], fun.MTHDS[1])
 ###############################################################################
@@ -39,7 +45,7 @@ else:
 (fID, palID) = (PNG_NAME.split('.')[0], PAL_NAME.split('.')[0])
 outFolder = path.join(BASE_PATH, fID)
 fun.makeFolder(outFolder)
-(pthQNT, pthDWN, pthUPS, pthGRD, pthSWT, pthBDS, pthFNL) = [
+(pthQNT, pthDWN, pthUPS, pthGRD, pthSWT, pthBDS, pthFNL, pthCMP) = [
     path.join(outFolder, i+f'-{palID}-{fID}.png') for i in fun.FIDS
 ]
 ###############################################################################
@@ -61,12 +67,53 @@ if exists(fileMapper):
 if fun.isInt(PAL_NAME):
     imgQnt = fun.quantizeImage(img, int(PAL_NAME), method=QNT_MTHD, dither=False)
     cpal = None
+elif PAL_NAME.lower() in ['mard', 'mard.plt']:
+    # Use full MARD palette (215 colors)
+    if CLUSTER > 0:
+        # First quantize with full palette, then cluster actual used colors
+        fullPalette = fun.getFullMardPalette()
+        cpal = fun.paletteReshape(fullPalette)
+        imgTmp = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
+        # Get actually used colors from image
+        usedColors = [c[0] for c in fun.getImagePalette(imgTmp.convert('RGB'))]
+        # Cluster the used colors
+        clusteredPalette = fun.clusterColors(usedColors, CLUSTER)
+        cpal = fun.paletteReshape(clusteredPalette)
+        imgQnt = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
+    else:
+        originalPalette = fun.getFullMardPalette()
+        cpal = fun.paletteReshape(originalPalette)
+        imgQnt = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
 else:
     palDict = fun.readPaletteFile(path.join(BASE_PATH, PAL_NAME))
-    cpal = fun.paletteReshape(palDict['palette'])
-    imgQnt = fun.quantizeImage(
-        img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-    )
+    originalPalette = palDict['palette']
+    
+    # Apply color clustering if enabled
+    if CLUSTER > 0:
+        # First quantize with full palette, then cluster actual used colors
+        cpal = fun.paletteReshape(originalPalette)
+        imgTmp = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
+        # Get actually used colors from image
+        usedColors = [c[0] for c in fun.getImagePalette(imgTmp.convert('RGB'))]
+        # Cluster the used colors
+        clusteredPalette = fun.clusterColors(usedColors, CLUSTER)
+        cpal = fun.paletteReshape(clusteredPalette)
+        imgQnt = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
+    else:
+        cpal = fun.paletteReshape(originalPalette)
+        imgQnt = fun.quantizeImage(
+            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
+        )
 # imgQnt.save(pthQNT)
 ###############################################################################
 # Downscale
@@ -118,7 +165,7 @@ sleep(fun.SLEEP)
 )
 swatch = fun.getImagePalette(imgTmp)
 imgSwt = fun.genColorCounts(
-    swatch, 500, imgBDS.size[1], imgDwn.size, authorLabel=AUTHOR
+    swatch, 500, imgBDS.size[1], imgDwn.size, authorLabel=AUTHOR, useMard=(MARD == 1)
 )
 plt.savefig(
     pthSWT, bbox_inches='tight', pad_inches=0,
@@ -148,9 +195,15 @@ ccat = fun.hConcat(imgBDS, imgSWT)
 ccat.save(pthFNL)
 sleep(fun.SLEEP)
 ###############################################################################
+# Comparison Grid
+###############################################################################
+pthOriginal = path.join(BASE_PATH, PNG_NAME)
+fun.createComparisonGrid(pthOriginal, pthUPS, pthGRD, pthFNL, pthCMP)
+sleep(fun.SLEEP)
+###############################################################################
 # Delete files
 ###############################################################################
-banList = (pthDWN, pthUPS, pthGRD, pthSWT, pthBDS, pthFNL)
+banList = (pthDWN, pthUPS, pthGRD, pthSWT, pthBDS, pthFNL, pthCMP)
 if not DEBUG:
     for tFile in banList[:-1]:
         remove(tFile)
