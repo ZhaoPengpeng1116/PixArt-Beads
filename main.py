@@ -4,7 +4,7 @@ from sys import argv
 from time import sleep
 from os.path import exists
 from os import path, remove
-from cv2 import imread, imwrite
+import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageColor
 import functions as fun
@@ -138,14 +138,16 @@ sleep(fun.SLEEP)
 ###############################################################################
 # Gridded
 ###############################################################################
-imgTmp = imread(pthUPS)
+# Use PIL for I/O to support non-ASCII paths on Windows
+imgTmp = np.array(Image.open(pthUPS).convert('RGB'))
 imgGrd = fun.gridOverlay(imgTmp, UPSCALE, gridColor=(0, 0, 0))
-imwrite(pthGRD, imgGrd)
+Image.fromarray(imgGrd).save(pthGRD)
 sleep(fun.SLEEP)
 ###############################################################################
 # Beads Plot
 ###############################################################################
-imgTmp = imread(pthDWN)
+# Use PIL for I/O to support non-ASCII paths on Windows
+imgTmp = np.array(Image.open(pthDWN).convert('RGB'))[:, :, ::-1]  # RGB -> BGR
 (fig, ax) = fun.genBeadsPlot(
     imgTmp, bgColor=fun.BEAD_BKG,
     inRadius=fun.RADII[0], outRadius=fun.RADII[1], imgAlpha=fun.BEAD_ALPHA

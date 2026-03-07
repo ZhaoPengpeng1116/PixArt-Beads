@@ -736,19 +736,29 @@ def createComparisonGrid(originalPath, upsPath, grdPath, fnlPath, outputPath):
     topRow = hConcat(topRow, gapImg)
     topRow = hConcat(topRow, imgGrd)
     
-    # Create bottom row: FNL centered (ensure full width is visible)
-    # If FNL is wider than top row, stretch top row to match FNL width
+    # Create bottom row: FNL should fill the full width
+    # Scale whichever is narrower to match the wider one
     if imgFnl.width > topRow.width:
         # Scale top row to match FNL width
         scaleRatio = imgFnl.width / topRow.width
         newHeight = int(topRow.height * scaleRatio)
         topRow = topRow.resize((imgFnl.width, newHeight), Image.LANCZOS)
-        xOffset = 0
+        finalWidth = imgFnl.width
+        bottomBg = Image.new('RGB', (finalWidth, imgFnl.height), color=(254, 254, 254))
+        bottomBg.paste(imgFnl, (0, 0))
+    elif imgFnl.width < topRow.width:
+        # Scale FNL to match top row width
+        scaleRatio = topRow.width / imgFnl.width
+        newHeight = int(imgFnl.height * scaleRatio)
+        imgFnlScaled = imgFnl.resize((topRow.width, newHeight), Image.LANCZOS)
+        finalWidth = topRow.width
+        bottomBg = Image.new('RGB', (finalWidth, newHeight), color=(254, 254, 254))
+        bottomBg.paste(imgFnlScaled, (0, 0))
     else:
-        xOffset = (topRow.width - imgFnl.width) // 2
-    
-    bottomBg = Image.new('RGB', (topRow.width, imgFnl.height), color=(254, 254, 254))
-    bottomBg.paste(imgFnl, (xOffset, 0))
+        # Same width, no scaling needed
+        finalWidth = topRow.width
+        bottomBg = Image.new('RGB', (finalWidth, imgFnl.height), color=(254, 254, 254))
+        bottomBg.paste(imgFnl, (0, 0))
     
     # Combine top and bottom
     combined = vConcat(topRow, bottomBg)
