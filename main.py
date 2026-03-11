@@ -53,6 +53,8 @@ fun.makeFolder(outFolder)
 ###############################################################################
 pth = path.join(BASE_PATH, PNG_NAME)
 img = Image.open(pth).convert('RGB')
+# Precompute target downscale size (used by clustering seed as well)
+dsize = fun.downscaleSize(img, DOWNSCALE)
 ###############################################################################
 # Replace Background Color
 ###############################################################################
@@ -64,68 +66,54 @@ if exists(fileMapper):
 # Quantize
 #   0: median cut, 1: maximum coverage, 2: fast octree
 ###############################################################################
+mardPalette = None
+clusterPalette = None
+imgDwnRaw = img.resize(dsize, resample=DWN_MTHD)
 if fun.isInt(PAL_NAME):
-    imgQnt = fun.quantizeImage(img, int(PAL_NAME), method=QNT_MTHD, dither=False)
+    imgDwn = fun.quantizeImage(imgDwnRaw, int(PAL_NAME), method=QNT_MTHD, dither=False)
     cpal = None
 elif PAL_NAME.lower() in ['mard', 'mard.plt']:
     # Use full MARD palette (215 colors)
+    mardPalette = None
     if CLUSTER > 0:
-        # First quantize with full palette, then cluster actual used colors
-        fullPalette = fun.getFullMardPalette()
-        cpal = fun.paletteReshape(fullPalette)
-        imgTmp = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
-        # Get actually used colors from image
-        usedColors = [c[0] for c in fun.getImagePalette(imgTmp.convert('RGB'))]
-        # Cluster the used colors
-        clusteredPalette = fun.clusterColors(usedColors, CLUSTER)
-        cpal = fun.paletteReshape(clusteredPalette)
-        imgQnt = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
+        # Cluster colors from downscaled image (raw)
+        usedPalette = fun.getImagePalette(imgDwnRaw.convert('RGB'))
+        usedColors = [c[0] for c in usedPalette]
+        usedCounts = [c[1] for c in usedPalette]
+        # Cluster the used colors (weighted by counts), using existing colors as representatives
+        clusteredPalette = fun.clusterColors(usedColors, CLUSTER, usedCounts)
+        # Ensure clustered palette stays within MARD colors
+        clusterPalette = fun.mapPaletteToNearestMard(clusteredPalette)
+        mardPalette = clusterPalette
     else:
         originalPalette = fun.getFullMardPalette()
-        cpal = fun.paletteReshape(originalPalette)
-        imgQnt = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
+        mardPalette = originalPalette
+    cpal = fun.paletteReshape(mardPalette)
+    imgDwn = fun.quantizeImageLab(imgDwnRaw.convert('RGB'), mardPalette)
 else:
     palDict = fun.readPaletteFile(path.join(BASE_PATH, PAL_NAME))
     originalPalette = palDict['palette']
     
     # Apply color clustering if enabled
     if CLUSTER > 0:
-        # First quantize with full palette, then cluster actual used colors
-        cpal = fun.paletteReshape(originalPalette)
-        imgTmp = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
-        # Get actually used colors from image
-        usedColors = [c[0] for c in fun.getImagePalette(imgTmp.convert('RGB'))]
-        # Cluster the used colors
-        clusteredPalette = fun.clusterColors(usedColors, CLUSTER)
-        cpal = fun.paletteReshape(clusteredPalette)
-        imgQnt = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
+        # Cluster colors from downscaled image (raw)
+        usedPalette = fun.getImagePalette(imgDwnRaw.convert('RGB'))
+        usedColors = [c[0] for c in usedPalette]
+        usedCounts = [c[1] for c in usedPalette]
+        # Cluster the used colors (weighted by counts), using existing colors as representatives
+        clusteredPalette = fun.clusterColors(usedColors, CLUSTER, usedCounts)
+        clusterPalette = fun.mapPaletteToNearestPalette(clusteredPalette, originalPalette)
+        cpal = fun.paletteReshape(clusterPalette)
+        imgDwn = fun.quantizeImageLab(imgDwnRaw.convert('RGB'), clusterPalette)
     else:
         cpal = fun.paletteReshape(originalPalette)
-        imgQnt = fun.quantizeImage(
-            img, colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-        )
+        imgDwn = fun.quantizeImageLab(imgDwnRaw.convert('RGB'), originalPalette)
 # imgQnt.save(pthQNT)
 ###############################################################################
 # Downscale
 #   Image.NEAREST, Image.BILINEAR, Image.BICUBIC, Image.LANCZOS, Image.NEAREST
 ###############################################################################
-dsize = fun.downscaleSize(imgQnt, DOWNSCALE)
-imgDwn = imgQnt.resize(dsize, resample=DWN_MTHD)
-# Re-quantize to ensure colors match the palette after interpolation
-if cpal is not None:
-    imgDwn = fun.quantizeImage(
-        imgDwn.convert('RGB'), colorsNumber=cpal[0], colorPalette=cpal[1], method=QNT_MTHD, dither=False
-    )
+# imgDwn already computed above (downscale -> cluster -> quantize)
 imgDwn.save(pthDWN)
 sleep(fun.SLEEP)
 ###############################################################################

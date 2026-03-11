@@ -5,6 +5,7 @@
 import re
 import os
 import cv2
+import colorsys
 import numpy as np
 from cv2 import cvtColor
 import matplotlib.pyplot as plt
@@ -246,6 +247,9 @@ MARD_MAP = {
     '#747d7a': 'M15',
 }
 
+# Reverse lookup for MARD codes -> hex
+MARD_REVERSE_MAP = {v: k for k, v in MARD_MAP.items()}
+
 ###############################################################################
 # Functions 
 ###############################################################################
@@ -272,6 +276,44 @@ def quantizeImage(img, colorsNumber=255, colorPalette=None, method=0, dither=Fal
             palette=colorPalette, method=method, dither=dither
         )
     return img
+
+
+def quantizeImageLab(img, colorPalette, batchSize=50000):
+    """
+    Quantize image to a given palette using plain HSV color distance.
+
+    Args:
+        img: PIL Image
+        colorPalette: list of hex colors (e.g., ['#FF0000', ...])
+        batchSize: number of pixels per batch for distance computation
+
+    Returns:
+        PIL Image in RGB mode with colors mapped to palette
+    """
+    if not colorPalette:
+        return img
+
+    img_rgb = img.convert('RGB')
+    arr = np.array(img_rgb, dtype=np.uint8)
+    h, w = arr.shape[:2]
+    pixels = arr.reshape(-1, 3)
+
+    # Palette HSV and RGB
+    pal_rgb = np.array([ImageColor.getcolor(c, "RGB") for c in colorPalette], dtype=np.uint8)
+    pal_hsv = [_hexToHsv(c) for c in colorPalette]
+
+    # Map each pixel to nearest palette color using plain HSV distance
+    mapped_idx = np.empty((pixels.shape[0],), dtype=np.int32)
+    for start in range(0, pixels.shape[0], batchSize):
+        end = min(start + batchSize, pixels.shape[0])
+        chunk = pixels[start:end]
+        for i, pixel_rgb in enumerate(chunk):
+            pixel_hsv = _rgbToHsv(pixel_rgb)
+            distances = [_hsvDistance(pixel_hsv, p_hsv) for p_hsv in pal_hsv]
+            mapped_idx[start + i] = np.argmin(distances)
+
+    mapped_pixels = pal_rgb[mapped_idx].reshape(h, w, 3)
+    return Image.fromarray(mapped_pixels.astype(np.uint8), 'RGB')
 
 
 def gridOverlay(img, gridSize, gridColor=(0,0,0)):
@@ -533,26 +575,169 @@ def getMardCode(hexColor):
     return MARD_MAP.get(h)
 
 
+def getMardHex(code):
+    if not code:
+        return None
+    return MARD_REVERSE_MAP.get(code)
+
+
 def _hexToRgb(hexColor):
     rgb = ImageColor.getcolor(hexColor, "RGB")
     return np.array(rgb, dtype=np.int16)
 
 
+def _rgbToHsv(rgb):
+    """
+    Convert RGB to HSV color space.
+    
+    Args:
+        rgb: numpy array of RGB values (0-255) or tuple/list
+    
+    Returns:
+        tuple of (H: 0-360, S: 0-100, V: 0-100)
+    """
+    r, g, b = [x/255.0 for x in rgb]
+    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+    return (h * 360, s * 100, v * 100)
+
+
+def _rgbToLab(rgb):
+    """
+    Convert RGB to LAB color space using OpenCV.
+    
+    Args:
+        rgb: numpy array of RGB values (0-255) or tuple/list
+    
+    Returns:
+        numpy array of LAB values
+    """
+    rgb_array = np.array(rgb, dtype=np.uint8)
+    if rgb_array.ndim == 1:
+        rgb_array = rgb_array.reshape(1, 1, 3)
+    lab = cvtColor(rgb_array, cv2.COLOR_RGB2LAB)
+    return lab.reshape(-1, 3)[0].astype(np.int16)
+
+
+def _hexToHsv(hexColor):
+    """
+    Convert hex color to HSV color space.
+    
+    Args:
+        hexColor: hex color string (e.g., '#FF0000')
+    
+    Returns:
+        tuple of (H: 0-360, S: 0-100, V: 0-100)
+    """
+    rgb = ImageColor.getcolor(hexColor, "RGB")
+    return _rgbToHsv(rgb)
+
+
+def _hexToLab(hexColor):
+    """
+    Convert hex color to LAB color space.
+    
+    Args:
+        hexColor: hex color string (e.g., '#FF0000')
+    
+    Returns:
+        numpy array of LAB values
+    """
+    rgb = ImageColor.getcolor(hexColor, "RGB")
+    return _rgbToLab(rgb)
+
+
+def _hsvDistance(hsv1, hsv2):
+    """
+    Calculate plain HSV distance (no grayscale-specific rules, no extra weighting).
+    """
+    h1, s1, v1 = hsv1
+    h2, s2, v2 = hsv2
+
+    # Hue is circular, handle wraparound
+    dh = min(abs(h1 - h2), 360 - abs(h1 - h2))
+    ds = abs(s1 - s2)
+    dv = abs(v1 - v2)
+
+    return dh ** 2 + ds ** 2 + dv ** 2
+
+
 def getNearestMardCode(hexColor):
+    """
+    Find nearest MARD color code using HSV color space.
+    Uses plain HSV distance without grayscale-specific enhancement.
+    """
     h = normalizeHex(hexColor)
     if not h:
         return None
     if h in MARD_MAP:
         return MARD_MAP[h]
-    target = _hexToRgb(h)
+    
+    # Use plain HSV color distance
+    target_hsv = _hexToHsv(h)
     best_code = None
     best_dist = None
+    
     for mhex, code in MARD_MAP.items():
-        dist = np.sum((target - _hexToRgb(mhex)) ** 2)
+        mard_hsv = _hexToHsv(mhex)
+        dist = _hsvDistance(target_hsv, mard_hsv)
         if best_dist is None or dist < best_dist:
             best_dist = dist
             best_code = code
     return best_code
+
+
+def mapPaletteToNearestMard(colorPalette):
+    """
+    Map a palette of hex colors to nearest MARD colors (in HSV space).
+    Keeps order and removes duplicates.
+    """
+    if not colorPalette:
+        return colorPalette
+    mapped = []
+    for color in colorPalette:
+        mardCode = getMardCode(color)
+        if not mardCode:
+            mardCode = getNearestMardCode(color)
+        mardHex = getMardHex(mardCode) if mardCode else None
+        mapped.append(mardHex if mardHex else normalizeHex(color))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    deduped = []
+    for c in mapped:
+        if c not in seen:
+            seen.add(c)
+            deduped.append(c)
+    return deduped
+
+
+def mapPaletteToNearestPalette(colorPalette, targetPalette):
+    """
+    Map a palette of hex colors to the nearest colors in a target palette (HSV distance).
+    Keeps order and removes duplicates.
+    """
+    if not colorPalette or not targetPalette:
+        return colorPalette
+
+    target_hsv = [_hexToHsv(c) for c in targetPalette]
+    mapped = []
+    for color in colorPalette:
+        h = normalizeHex(color)
+        if not h:
+            continue
+        hsv = _hexToHsv(h)
+        distances = [_hsvDistance(hsv, t_hsv) for t_hsv in target_hsv]
+        best_idx = int(np.argmin(distances))
+        mapped.append(normalizeHex(targetPalette[best_idx]))
+
+    # Remove duplicates while preserving order
+    seen = set()
+    deduped = []
+    for c in mapped:
+        if c not in seen:
+            seen.add(c)
+            deduped.append(c)
+    return deduped
 
 
 def getFullMardPalette():
@@ -566,7 +751,13 @@ def getFullMardPalette():
 
 
 def getImagePalette(img):
-    palette = sorted(img.getcolors(), reverse=True)
+    # getcolors() may return None if image has too many colors
+    palette = img.getcolors(maxcolors=256*256)
+    if palette is None:
+        # fallback: quantize to a large palette then extract
+        tmp = img.convert('RGB').quantize(colors=256, method=MTHDS[0], dither=False)
+        palette = tmp.getcolors(maxcolors=256*256)
+    palette = sorted(palette, reverse=True)
     hexPalette = [(rgbToHex(*i[1]), i[0]) for i in palette]
     return hexPalette
 
@@ -781,13 +972,14 @@ def isInt(element):
         return False
 
 
-def clusterColors(colorPalette, numClusters):
+def clusterColors(colorPalette, numClusters, colorCounts=None):
     """
-    Use K-means clustering to reduce palette to target color count.
+    Use K-means clustering in HSV color space to reduce palette to target color count.
     
     Args:
         colorPalette: List of hex color strings (e.g., ['#FF0000', '#00FF00', ...])
         numClusters: Target number of colors
+        colorCounts: Optional list of counts/weights for each color
     
     Returns:
         List of clustered hex colors
@@ -795,20 +987,75 @@ def clusterColors(colorPalette, numClusters):
     if len(colorPalette) <= numClusters:
         return colorPalette
     
-    # Convert hex to RGB
+    # Convert hex to RGB first
     rgbArray = np.array([
         ImageColor.getcolor(c, "RGB") for c in colorPalette
-    ])
-    
-    # K-means clustering on RGB
+    ], dtype=np.uint8)
+
+    # Convert RGB to HSV feature space (no grayscale-specific weighting).
+    # For circular hue, use (s*cos(h), s*sin(h), v) as clustering feature.
+    rgb_norm = rgbArray.astype(np.float64) / 255.0
+    hsv_list = [colorsys.rgb_to_hsv(r, g, b) for r, g, b in rgb_norm]
+    hsvArray = np.array(hsv_list, dtype=np.float64)  # h,s,v in [0,1]
+    hue = hsvArray[:, 0] * (2.0 * np.pi)
+    sat = hsvArray[:, 1]
+    val = hsvArray[:, 2]
+    hsvFeat = np.column_stack((sat * np.cos(hue), sat * np.sin(hue), val))
+
+    # K-means clustering on HSV feature space
     kmeans = KMeans(n_clusters=numClusters, n_init=10, random_state=42)
-    kmeans.fit(rgbArray)
-    
-    # Get cluster centers and convert back to hex
-    centers = kmeans.cluster_centers_.astype(np.uint8)
-    clusteredColors = [rgbToHex(c[0], c[1], c[2]) for c in centers]
-    
-    return clusteredColors
+    weights = None
+    if colorCounts is not None and len(colorCounts) == len(colorPalette):
+        weights = np.array(colorCounts, dtype=np.float64)
+        try:
+            kmeans.fit(hsvFeat, sample_weight=weights)
+        except TypeError:
+            # Fallback if sklearn version doesn't support sample_weight
+            kmeans.fit(hsvFeat)
+    else:
+        kmeans.fit(hsvFeat)
+
+    # Use existing colors as cluster representatives (nearest sample to centroid)
+    labels = kmeans.labels_
+    centers = kmeans.cluster_centers_.astype(np.float64)
+    featArrayF = hsvFeat.astype(np.float64)
+
+    cluster_order = list(range(numClusters))
+    if weights is not None:
+        cluster_weight = []
+        for k in cluster_order:
+            idx = np.where(labels == k)[0]
+            cluster_weight.append(np.sum(weights[idx]) if idx.size > 0 else 0)
+        cluster_order = [k for _, k in sorted(zip(cluster_weight, cluster_order), reverse=True)]
+
+    representatives = []
+    seen = set()
+    for k in cluster_order:
+        idx = np.where(labels == k)[0]
+        if idx.size == 0:
+            continue
+        d = np.sum((featArrayF[idx] - centers[k]) ** 2, axis=1)
+        best_idx = idx[np.argmin(d)]
+        hex_color = normalizeHex(colorPalette[best_idx])
+        if hex_color not in seen:
+            seen.add(hex_color)
+            representatives.append(hex_color)
+
+    # If dedup reduced size, backfill with frequent original colors
+    if len(representatives) < numClusters:
+        if weights is not None:
+            fallback_idx = np.argsort(-weights)
+        else:
+            fallback_idx = np.arange(len(colorPalette))
+        for i in fallback_idx:
+            hex_color = normalizeHex(colorPalette[i])
+            if hex_color not in seen:
+                seen.add(hex_color)
+                representatives.append(hex_color)
+            if len(representatives) >= numClusters:
+                break
+
+    return representatives[:numClusters]
 
 
 def remapImageToClusteredPalette(img, originalPalette, clusteredPalette):
